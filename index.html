@@ -1,0 +1,387 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>L805 Disc Studio</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div class="brand">
+          <div class="brand-mark">L805</div>
+          <div>
+            <div class="brand-title">Disc Studio</div>
+            <div class="brand-subtitle">Epson L805 CD/DVD Tray</div>
+          </div>
+        </div>
+
+        <div class="toolbar" aria-label="Основные действия">
+          <button class="tool-button" id="newProjectBtn" title="Новый проект">Новый</button>
+          <button class="tool-button" id="saveProjectBtn" title="Сохранить проект в JSON">Сохранить</button>
+          <button class="tool-button" id="openProjectBtn" title="Открыть проект JSON">Открыть</button>
+          <button class="tool-button" id="undoBtn" title="Отменить действие">Отмена</button>
+          <button class="tool-button" id="redoBtn" title="Повторить действие">Повтор</button>
+          <button class="tool-button" id="themeToggleBtn" title="Светлая / темная тема">Тема</button>
+          <div class="toolbar-separator"></div>
+          <button class="tool-button" id="exportSvgBtn" title="Экспорт SVG 1:1">SVG</button>
+          <button class="tool-button" id="exportPngBtn" title="Экспорт PNG 300 DPI">PNG</button>
+          <button class="tool-button" id="exportPdfBtn" title="Экспорт PDF через диалог печати">PDF</button>
+          <button class="tool-button accent" id="testPrintBtn" title="Печать калибровочного шаблона">Тест</button>
+          <button class="tool-button primary" id="printBtn" title="Печать макета">Печать</button>
+        </div>
+      </header>
+
+      <main class="editor-layout">
+        <aside class="side-panel left-panel" aria-label="Инструменты">
+          <section class="panel-section">
+            <h2>Добавить</h2>
+            <div class="tool-grid">
+              <button id="uploadBgBtn" class="large-tool">
+                <span>Фон</span>
+                <small>обложка на диск</small>
+              </button>
+              <button id="addImageBtn" class="large-tool">
+                <span>Лого</span>
+                <small>картинка-слой</small>
+              </button>
+              <button id="addTextBtn" class="large-tool">
+                <span>Текст</span>
+                <small>название, год</small>
+              </button>
+              <button id="addCircleTextBtn" class="large-tool">
+                <span>По кругу</span>
+                <small>дуговая надпись</small>
+              </button>
+              <button id="addTracklistBtn" class="large-tool">
+                <span>Треклист</span>
+                <small>строки песен</small>
+              </button>
+              <button id="importTracklistBtn" class="large-tool">
+                <span>CUE/TXT</span>
+                <small>импорт треков</small>
+              </button>
+              <button id="albumTemplateBtn" class="large-tool">
+                <span>Альбом</span>
+                <small>быстрый шаблон</small>
+              </button>
+              <button id="coverTemplateBtn" class="large-tool">
+                <span>Обложка</span>
+                <small>шаблон кейса</small>
+              </button>
+            </div>
+          </section>
+
+          <section class="panel-section">
+            <div class="section-title-row">
+              <h2>Слои</h2>
+              <div class="inline-actions">
+                <button id="moveLayerUpBtn" class="mini-button" title="Слой выше">Вверх</button>
+                <button id="moveLayerDownBtn" class="mini-button" title="Слой ниже">Вниз</button>
+                <button id="deleteLayerBtn" class="mini-button danger" title="Удалить выбранный слой">Удалить</button>
+              </div>
+            </div>
+            <div id="layersList" class="layers-list" aria-live="polite"></div>
+          </section>
+
+          <section class="panel-section">
+            <div class="section-title-row">
+              <h2>Проверка</h2>
+              <button id="preflightBtn" class="mini-button filled">Проверить</button>
+            </div>
+            <div id="preflightResults" class="preflight-results">Макет еще не проверялся.</div>
+          </section>
+
+          <section class="panel-section compact-help">
+            <h2>Печать</h2>
+            <p>В диалоге печати выбери Epson L805, источник CD/DVD Tray и масштаб 100%.</p>
+          </section>
+        </aside>
+
+        <section class="workspace" aria-label="Макет диска">
+          <div class="workspace-top">
+            <div class="segmented" role="group" aria-label="Зум">
+              <button data-zoom="0.75">75%</button>
+              <button data-zoom="1" class="active">100%</button>
+              <button data-zoom="1.5">150%</button>
+            </div>
+            <label class="surface-switch">
+              <span>Макет</span>
+              <select id="surfaceSelect">
+                <option value="disc">Диск</option>
+                <option value="front">Передняя 120x120</option>
+                <option value="back">Задник 151x118</option>
+                <option value="booklet">Буклет 240x120</option>
+              </select>
+            </label>
+            <div class="canvas-readout" id="canvasReadout">120 мм / Full face 18-120 мм</div>
+          </div>
+
+          <div class="canvas-stage-wrap">
+            <div class="canvas-stage" id="canvasStage">
+              <svg id="discSvg" class="disc-svg" viewBox="0 0 120 120" role="img" aria-label="Редактор печати диска"></svg>
+            </div>
+          </div>
+        </section>
+
+        <aside class="side-panel inspector-panel" aria-label="Свойства">
+          <section class="panel-section" id="discProfileSection">
+            <h2>Профиль диска</h2>
+            <label class="field">
+              <span>Пресет</span>
+              <select id="presetSelect">
+                <option value="full">Full face 18-120 мм</option>
+                <option value="classic">Обычный 43-116 мм</option>
+                <option value="mini">Mini CD 18-80 мм</option>
+              </select>
+            </label>
+            <div class="field-row">
+              <label class="field">
+                <span>Внешний</span>
+                <input id="outerInput" type="number" min="60" max="120" step="0.1" />
+              </label>
+              <label class="field">
+                <span>Отверстие</span>
+                <input id="innerInput" type="number" min="15" max="60" step="0.1" />
+              </label>
+            </div>
+            <div class="field-row">
+              <label class="field">
+                <span>Safe out</span>
+                <input id="safeOuterInput" type="number" min="50" max="120" step="0.1" />
+              </label>
+              <label class="field">
+                <span>Safe in</span>
+                <input id="safeInnerInput" type="number" min="15" max="65" step="0.1" />
+              </label>
+            </div>
+          </section>
+
+          <section class="panel-section" id="coverFormatSection" hidden>
+            <h2>Формат обложки</h2>
+            <div id="coverFormatInfo" class="format-info">Передняя обложка 120x120 мм</div>
+          </section>
+
+          <section class="panel-section">
+            <h2>Фон</h2>
+            <div class="button-row align-left">
+              <button id="centerBgBtn" class="mini-button">В центр</button>
+              <button id="coverBgBtn" class="mini-button">Заполнить</button>
+              <button id="clearBgBtn" class="mini-button danger">Убрать</button>
+            </div>
+            <label class="range-field">
+              <span>Масштаб</span>
+              <input id="bgScaleInput" type="range" min="50" max="220" value="100" />
+              <output id="bgScaleValue">100%</output>
+            </label>
+            <div class="field-row">
+              <label class="field">
+                <span>X</span>
+                <input id="bgXInput" type="number" min="-60" max="60" step="0.1" />
+              </label>
+              <label class="field">
+                <span>Y</span>
+                <input id="bgYInput" type="number" min="-60" max="60" step="0.1" />
+              </label>
+            </div>
+            <label class="field">
+              <span>Поворот</span>
+              <input id="bgRotationInput" type="number" min="-180" max="180" step="0.1" />
+            </label>
+            <div class="subsection-title">Эффекты</div>
+            <label class="range-field">
+              <span>Яркость</span>
+              <input id="bgBrightnessInput" type="range" min="50" max="150" value="100" />
+              <output id="bgBrightnessValue">100%</output>
+            </label>
+            <label class="range-field">
+              <span>Контраст</span>
+              <input id="bgContrastInput" type="range" min="50" max="150" value="100" />
+              <output id="bgContrastValue">100%</output>
+            </label>
+            <label class="range-field">
+              <span>Насыщенность</span>
+              <input id="bgSaturationInput" type="range" min="0" max="200" value="100" />
+              <output id="bgSaturationValue">100%</output>
+            </label>
+            <label class="range-field">
+              <span>Ч/Б</span>
+              <input id="bgGrayscaleInput" type="range" min="0" max="100" value="0" />
+              <output id="bgGrayscaleValue">0%</output>
+            </label>
+          </section>
+
+          <section class="panel-section selected-section">
+            <div class="section-title-row">
+              <h2>Объект</h2>
+              <button id="duplicateLayerBtn" class="mini-button" title="Дублировать выбранный слой">Копия</button>
+            </div>
+            <div id="emptySelection" class="empty-state">Выбери слой или объект на диске.</div>
+            <div id="objectControls" class="object-controls" hidden>
+              <label class="field">
+                <span>Текст</span>
+                <textarea id="objectTextInput" rows="3"></textarea>
+              </label>
+              <div class="field-row">
+                <label class="field">
+                  <span>X</span>
+                  <input id="objectXInput" type="number" step="0.1" />
+                </label>
+                <label class="field">
+                  <span>Y</span>
+                  <input id="objectYInput" type="number" step="0.1" />
+                </label>
+              </div>
+              <div class="field-row">
+                <label class="field">
+                  <span>Размер</span>
+                  <input id="objectSizeInput" type="number" min="1" max="80" step="0.1" />
+                </label>
+                <label class="field">
+                  <span>Поворот</span>
+                  <input id="objectRotationInput" type="number" min="-180" max="180" step="0.1" />
+                </label>
+              </div>
+              <div class="button-row align-left">
+                <button id="alignCenterXBtn" class="mini-button">Центр X</button>
+                <button id="alignCenterYBtn" class="mini-button">Центр Y</button>
+                <button id="snapSafeBtn" class="mini-button">Safe</button>
+              </div>
+              <div class="field-row">
+                <label class="field">
+                  <span>Шрифт</span>
+                  <select id="objectFontInput">
+                    <option value="Inter, Segoe UI, Arial">Inter</option>
+                    <option value="Segoe UI, Arial">Segoe UI</option>
+                    <option value="Arial">Arial</option>
+                    <option value="Georgia, serif">Georgia</option>
+                    <option value="Consolas, monospace">Consolas</option>
+                  </select>
+                </label>
+                <label class="field">
+                  <span>Цвет</span>
+                  <input id="objectColorInput" type="color" />
+                </label>
+              </div>
+              <div class="field-row">
+                <label class="field">
+                  <span>Жирность</span>
+                  <select id="objectWeightInput">
+                    <option value="400">400</option>
+                    <option value="600">600</option>
+                    <option value="700">700</option>
+                    <option value="800">800</option>
+                  </select>
+                </label>
+                <label class="field">
+                  <span>Выравн.</span>
+                  <select id="objectAlignInput">
+                    <option value="start">Слева</option>
+                    <option value="middle">Центр</option>
+                    <option value="end">Справа</option>
+                  </select>
+                </label>
+              </div>
+              <label class="range-field">
+                <span>Прозр.</span>
+                <input id="objectOpacityInput" type="range" min="10" max="100" value="100" />
+                <output id="objectOpacityValue">100%</output>
+              </label>
+              <div id="imageEffectControls" class="image-effect-controls">
+                <div class="subsection-title">Эффекты изображения</div>
+                <label class="range-field">
+                  <span>Яркость</span>
+                  <input id="objectBrightnessInput" type="range" min="50" max="150" value="100" />
+                  <output id="objectBrightnessValue">100%</output>
+                </label>
+                <label class="range-field">
+                  <span>Контраст</span>
+                  <input id="objectContrastInput" type="range" min="50" max="150" value="100" />
+                  <output id="objectContrastValue">100%</output>
+                </label>
+                <label class="range-field">
+                  <span>Насыщенность</span>
+                  <input id="objectSaturationInput" type="range" min="0" max="200" value="100" />
+                  <output id="objectSaturationValue">100%</output>
+                </label>
+                <label class="range-field">
+                  <span>Ч/Б</span>
+                  <input id="objectGrayscaleInput" type="range" min="0" max="100" value="0" />
+                  <output id="objectGrayscaleValue">0%</output>
+                </label>
+              </div>
+              <div class="button-row align-left">
+                <button id="toggleVisibleBtn" class="mini-button">Скрыть</button>
+                <button id="toggleLockBtn" class="mini-button">Блок</button>
+              </div>
+              <div id="circleTextControls" class="circle-controls">
+                <div class="field-row">
+                  <label class="field">
+                    <span>Радиус</span>
+                    <input id="objectRadiusInput" type="number" min="15" max="58" step="0.1" />
+                  </label>
+                  <label class="field">
+                    <span>Дуга</span>
+                    <input id="objectSweepInput" type="number" min="20" max="340" step="1" />
+                  </label>
+                </div>
+                <label class="field">
+                  <span>Старт</span>
+                  <input id="objectStartInput" type="number" min="-180" max="180" step="1" />
+                </label>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel-section">
+            <h2>Калибровка L805</h2>
+            <div class="field-row">
+              <label class="field">
+                <span>X мм</span>
+                <input id="calXInput" type="number" min="-10" max="10" step="0.1" />
+              </label>
+              <label class="field">
+                <span>Y мм</span>
+                <input id="calYInput" type="number" min="-10" max="10" step="0.1" />
+              </label>
+            </div>
+            <div class="field-row">
+              <label class="field">
+                <span>Масштаб</span>
+                <input id="calScaleInput" type="number" min="95" max="105" step="0.1" />
+              </label>
+              <label class="field">
+                <span>Поворот</span>
+                <input id="calRotationInput" type="number" min="-3" max="3" step="0.1" />
+              </label>
+            </div>
+            <label class="range-field">
+              <span>Насыщенность печати</span>
+              <input id="calInkInput" type="range" min="40" max="120" value="100" />
+              <output id="calInkValue">100%</output>
+            </label>
+            <div class="button-row">
+              <button id="resetCalibrationBtn" class="mini-button">Сброс</button>
+              <button id="saveCalibrationBtn" class="mini-button filled">Запомнить</button>
+            </div>
+          </section>
+        </aside>
+      </main>
+
+      <footer class="statusbar">
+        <span id="statusProfile">Epson L805 / Full face</span>
+        <span id="statusCalibration">X 0.0 мм, Y 0.0 мм, 100%</span>
+        <span id="statusMessage">Готово</span>
+      </footer>
+    </div>
+
+    <input id="backgroundFileInput" type="file" accept="image/*" hidden />
+    <input id="imageLayerFileInput" type="file" accept="image/*" hidden />
+    <input id="projectFileInput" type="file" accept="application/json,.json" hidden />
+    <input id="trackFileInput" type="file" accept=".cue,.txt,.csv,text/plain" hidden />
+
+    <script src="app.js"></script>
+  </body>
+</html>

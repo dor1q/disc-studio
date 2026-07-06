@@ -1,0 +1,15 @@
+{
+  "name": "l805-disc-studio",
+  "version": "1.2.0",
+  "description": "Desktop editor for Epson L805 CD/DVD and cover layouts.",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "package:win": "electron-packager . \"L805 Disc Studio\" --platform=win32 --arch=x64 --out=.. --overwrite --asar"
+  },
+  "devDependencies": {
+    "@electron/packager": "^18.3.6",
+    "electron": "^43.0.0"
+  }
+}
