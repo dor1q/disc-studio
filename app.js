@@ -191,6 +191,7 @@ const elements = {
   coverFormatInfo: $("#coverFormatInfo"),
   bgScaleInput: $("#bgScaleInput"),
   bgScaleValue: $("#bgScaleValue"),
+  bgColorInput: $("#bgColorInput"),
   bgXInput: $("#bgXInput"),
   bgYInput: $("#bgYInput"),
   bgRotationInput: $("#bgRotationInput"),
@@ -215,6 +216,16 @@ const elements = {
   objectAlignInput: $("#objectAlignInput"),
   objectOpacityInput: $("#objectOpacityInput"),
   objectOpacityValue: $("#objectOpacityValue"),
+  textStyleControls: $("#textStyleControls"),
+  objectItalicInput: $("#objectItalicInput"),
+  objectUnderlineInput: $("#objectUnderlineInput"),
+  shapeControls: $("#shapeControls"),
+  shapeTypeInput: $("#shapeTypeInput"),
+  shapeWidthInput: $("#shapeWidthInput"),
+  shapeHeightInput: $("#shapeHeightInput"),
+  shapeFillInput: $("#shapeFillInput"),
+  shapeStrokeInput: $("#shapeStrokeInput"),
+  shapeStrokeWidthInput: $("#shapeStrokeWidthInput"),
   imageEffectControls: $("#imageEffectControls"),
   objectBrightnessInput: $("#objectBrightnessInput"),
   objectBrightnessValue: $("#objectBrightnessValue"),
@@ -314,6 +325,14 @@ function normalizeObject(object) {
     visible: true,
     locked: false,
     surface: "disc",
+    italic: false,
+    underline: false,
+    shapeType: "rect",
+    width: 32,
+    height: 18,
+    fill: "#2563eb",
+    stroke: "#111827",
+    strokeWidth: 0.4,
     ...object
   };
   return {
@@ -344,6 +363,7 @@ function normalizeBackgrounds(backgrounds, legacyBackground) {
 function createEmptyBackground() {
   return {
     dataUrl: "",
+    color: "#ffffff",
     scale: 1,
     x: 0,
     y: 0,
@@ -403,6 +423,10 @@ function getActiveBackground() {
   return state.backgrounds[state.surface];
 }
 
+function hasBackground(bg = getActiveBackground()) {
+  return Boolean(bg.dataUrl || (bg.color && bg.color.toLowerCase() !== "#ffffff"));
+}
+
 function getCurrentObjects() {
   return state.objects.filter((object) => (object.surface || "disc") === state.surface);
 }
@@ -434,10 +458,12 @@ function bindEvents() {
   $("#exportPdfBtn").addEventListener("click", () => openPrintWindow("pdf"));
   $("#printBtn").addEventListener("click", () => openPrintWindow("design"));
   $("#testPrintBtn").addEventListener("click", () => openPrintWindow("test"));
+  $("#densityPrintBtn").addEventListener("click", () => openPrintWindow("density"));
   $("#uploadBgBtn").addEventListener("click", () => elements.backgroundFileInput.click());
   $("#addImageBtn").addEventListener("click", () => elements.imageLayerFileInput.click());
   $("#addTextBtn").addEventListener("click", addText);
   $("#addCircleTextBtn").addEventListener("click", addCircleText);
+  $("#addShapeBtn").addEventListener("click", addShape);
   $("#addTracklistBtn").addEventListener("click", addTracklist);
   $("#importTracklistBtn").addEventListener("click", () => elements.trackFileInput.click());
   $("#albumTemplateBtn").addEventListener("click", applyAlbumTemplate);
@@ -499,6 +525,7 @@ function bindEvents() {
 
   [
     ["bgScaleInput", "scale", (value) => Number(value) / 100],
+    ["bgColorInput", "color", String],
     ["bgXInput", "x", Number],
     ["bgYInput", "y", Number],
     ["bgRotationInput", "rotation", Number],
@@ -537,6 +564,14 @@ function bindEvents() {
     ["objectWeightInput", "weight", String],
     ["objectAlignInput", "align", String],
     ["objectOpacityInput", "opacity", (value) => Number(value) / 100],
+    ["objectItalicInput", "italic", Boolean],
+    ["objectUnderlineInput", "underline", Boolean],
+    ["shapeTypeInput", "shapeType", String],
+    ["shapeWidthInput", "width", Number],
+    ["shapeHeightInput", "height", Number],
+    ["shapeFillInput", "fill", String],
+    ["shapeStrokeInput", "stroke", String],
+    ["shapeStrokeWidthInput", "strokeWidth", Number],
     ["objectBrightnessInput", "brightness", Number],
     ["objectContrastInput", "contrast", Number],
     ["objectSaturationInput", "saturation", Number],
@@ -548,7 +583,8 @@ function bindEvents() {
     elements[elementKey].addEventListener("input", () => {
       const object = getSelectedObject();
       if (!object) return;
-      object[stateKey] = parser(elements[elementKey].value);
+      const element = elements[elementKey];
+      object[stateKey] = element.type === "checkbox" ? element.checked : parser(element.value);
       object.name = getObjectDisplayName(object);
       persistAndRender();
     });
@@ -602,7 +638,7 @@ function updateCanvasViewport() {
   elements.canvasStage.style.width = width > height ? "min(78vw, 900px)" : "min(68vh, 660px)";
 }
 
-function buildDiscSvg({ interactive = false, standalone = false, test = false, guides = true } = {}) {
+function buildDiscSvg({ interactive = false, standalone = false, test = false, density = false, guides = true } = {}) {
   if (getSurface().kind !== "disc") {
     return buildCoverSvg({ interactive, standalone, guides });
   }
@@ -619,13 +655,13 @@ function buildDiscSvg({ interactive = false, standalone = false, test = false, g
     : "";
   const svgEnd = standalone ? "</svg>" : "";
   const selectedId = interactive ? state.selectedId : "";
-  const bg = test
+  const bg = (test || density)
     ? `<rect x="0" y="0" width="120" height="120" fill="white"></rect>`
-    : (getActiveBackground().dataUrl ? buildBackground(maskId) : (interactive ? buildEmptyBackground(maskId) : ""));
-  const objectMarkup = test
+    : (hasBackground() ? buildBackground(maskId) : (interactive ? buildEmptyBackground(maskId) : ""));
+  const objectMarkup = (test || density)
     ? ""
     : getCurrentObjects().filter((object) => object.visible !== false).map((object) => buildObject(object, selectedId)).join("");
-  const testMarkup = test ? buildTestMarkup() : "";
+  const testMarkup = test ? buildTestMarkup() : (density ? buildDensityTestMarkup() : "");
   const guideMarkup = guides ? `
     <circle cx="60" cy="60" r="${outerRadius}" fill="none" stroke="#2563eb" stroke-width="0.35" stroke-dasharray="1.2 1.2"></circle>
     <circle cx="60" cy="60" r="${innerRadius}" fill="#f8fafc" stroke="#94a3b8" stroke-width="0.35"></circle>
@@ -667,7 +703,7 @@ function buildCoverSvg({ interactive = false, standalone = false, guides = true 
     : "";
   const svgEnd = standalone ? "</svg>" : "";
   const selectedId = interactive ? state.selectedId : "";
-  const bg = getActiveBackground().dataUrl ? buildBackground("", width, height) : (interactive ? buildEmptyBackground("", width, height) : "");
+  const bg = hasBackground() ? buildBackground("", width, height) : (interactive ? buildEmptyBackground("", width, height) : "");
   const objectMarkup = getCurrentObjects()
     .filter((object) => object.visible !== false)
     .map((object) => buildObject(object, selectedId))
@@ -732,7 +768,11 @@ function buildBackground(maskId = "", width = 120, height = 120) {
   const mask = maskId ? ` mask="url(#${maskId})"` : "";
   const transform = `translate(${centerX + x} ${centerY + y}) rotate(${rotation}) scale(${scale}) translate(-${centerX} -${centerY})`;
   const filterStyle = buildFilterStyle(bg);
-  return `<image href="${escapeAttribute(bg.dataUrl)}" x="0" y="0" width="${width}" height="${height}" preserveAspectRatio="xMidYMid slice" transform="${transform}"${mask}${filterStyle}></image>`;
+  const fill = `<rect x="0" y="0" width="${width}" height="${height}" fill="${escapeAttribute(bg.color || "#ffffff")}"${mask}></rect>`;
+  const image = bg.dataUrl
+    ? `<image href="${escapeAttribute(bg.dataUrl)}" x="0" y="0" width="${width}" height="${height}" preserveAspectRatio="xMidYMid slice" transform="${transform}"${mask}${filterStyle}></image>`
+    : "";
+  return `${fill}${image}`;
 }
 
 function buildEmptyBackground(maskId = "", width = 120, height = 120) {
@@ -788,12 +828,34 @@ function buildObject(object, selectedId) {
     `;
   }
 
+  if (object.type === "shape") {
+    const width = Math.max(1, Number(object.width || size || 32));
+    const height = Math.max(1, Number(object.height || size || 18));
+    const halfW = width / 2;
+    const halfH = height / 2;
+    const fill = escapeAttribute(object.fill || "#2563eb");
+    const stroke = escapeAttribute(object.stroke || "#111827");
+    const strokeWidth = Math.max(0, Number(object.strokeWidth ?? 0.4));
+    const shapeType = object.shapeType || "rect";
+    const transform = `rotate(${rotation} ${x} ${y})`;
+
+    if (shapeType === "ellipse") {
+      return `<ellipse ${common} cx="${x}" cy="${y}" rx="${halfW}" ry="${halfH}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}" opacity="${opacity}" transform="${transform}"></ellipse>`;
+    }
+
+    if (shapeType === "line") {
+      return `<line ${common} x1="${x - halfW}" y1="${y}" x2="${x + halfW}" y2="${y}" stroke="${stroke}" stroke-width="${Math.max(strokeWidth, 0.2)}" stroke-linecap="round" opacity="${opacity}" transform="${transform}"></line>`;
+    }
+
+    return `<rect ${common} x="${x - halfW}" y="${y - halfH}" width="${width}" height="${height}" rx="1.2" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}" opacity="${opacity}" transform="${transform}"></rect>`;
+  }
+
   if (object.type === "circleText") {
     const pathId = `arc-${escapeAttribute(object.id)}`;
     const path = describeArc(center.x, center.y, Number(object.radius || 45), Number(object.start || -120), Number(object.start || -120) + Number(object.sweep || 240));
     return `
       <defs><path id="${pathId}" d="${path}"></path></defs>
-      <text ${common} font-size="${number(object.size)}" font-family="${fontFamily}" font-weight="${escapeAttribute(object.weight || "700")}" fill="${escapeAttribute(object.color || "#111827")}" opacity="${opacity}" letter-spacing="0.35">
+      <text ${common} font-size="${number(object.size)}" font-family="${fontFamily}" font-style="${object.italic ? "italic" : "normal"}" font-weight="${escapeAttribute(object.weight || "700")}" text-decoration="${object.underline ? "underline" : "none"}" fill="${escapeAttribute(object.color || "#111827")}" opacity="${opacity}" letter-spacing="0.35">
         <textPath href="#${pathId}" startOffset="50%" text-anchor="middle">${escapeText(object.text)}</textPath>
       </text>
     `;
@@ -813,7 +875,9 @@ function buildObject(object, selectedId) {
       transform="rotate(${rotation} ${x} ${y})"
       font-size="${size}"
       font-family="${fontFamily}"
+      font-style="${object.italic ? "italic" : "normal"}"
       font-weight="${escapeAttribute(object.weight || "400")}"
+      text-decoration="${object.underline ? "underline" : "none"}"
       fill="${escapeAttribute(object.color || "#18212f")}"
       opacity="${opacity}"
       text-anchor="${anchor}"
@@ -842,6 +906,32 @@ function buildTestMarkup() {
     <line x1="60" y1="0" x2="60" y2="120" stroke="#dc2626" stroke-width="0.35"></line>
     <text x="60" y="53" text-anchor="middle" font-size="4" font-weight="800" fill="#111827">L805 TEST</text>
     <text x="60" y="66" text-anchor="middle" font-size="3" fill="#334155">проверь центр и введи смещение X/Y</text>
+  `;
+}
+
+function buildDensityTestMarkup() {
+  const blocks = [
+    { label: "70%", x: 26, y: 33, color: "#60a5fa" },
+    { label: "85%", x: 60, y: 33, color: "#2563eb" },
+    { label: "100%", x: 94, y: 33, color: "#1e3a8a" },
+    { label: "M-10", x: 26, y: 70, color: "#f472b6" },
+    { label: "STD", x: 60, y: 70, color: "#111827" },
+    { label: "C+10", x: 94, y: 70, color: "#22c55e" }
+  ];
+
+  return `
+    <rect x="0" y="0" width="120" height="120" fill="white"></rect>
+    <text x="60" y="18" text-anchor="middle" font-size="4.2" font-weight="800" fill="#111827">L805 DENSITY TEST</text>
+    <text x="60" y="24" text-anchor="middle" font-size="2.6" fill="#334155">выбери самый чистый блок без смазывания</text>
+    ${blocks.map((block) => `
+      <g>
+        <rect x="${block.x - 13}" y="${block.y - 9}" width="26" height="18" rx="1.5" fill="${block.color}"></rect>
+        <rect x="${block.x - 13}" y="${block.y - 9}" width="26" height="18" rx="1.5" fill="none" stroke="#111827" stroke-width="0.18"></rect>
+        <text x="${block.x}" y="${block.y + 1}" text-anchor="middle" font-size="3.2" font-weight="800" fill="#ffffff">${block.label}</text>
+      </g>
+    `).join("")}
+    <circle cx="60" cy="60" r="58" fill="none" stroke="#94a3b8" stroke-width="0.3" stroke-dasharray="1 1.2"></circle>
+    <circle cx="60" cy="60" r="9" fill="#f8fafc" stroke="#94a3b8" stroke-width="0.35"></circle>
   `;
 }
 
@@ -898,6 +988,7 @@ function renderControls() {
   elements.bgScaleInput.value = Math.round(Number(bg.scale || 1) * 100);
   elements.bgScaleValue.value = `${elements.bgScaleInput.value}%`;
   elements.bgScaleValue.textContent = `${elements.bgScaleInput.value}%`;
+  elements.bgColorInput.value = bg.color || "#ffffff";
   elements.bgXInput.value = number(bg.x, 1);
   elements.bgYInput.value = number(bg.y, 1);
   elements.bgRotationInput.value = number(bg.rotation, 1);
@@ -920,7 +1011,7 @@ function renderControls() {
 
   const isImage = selected.type === "image";
   elements.objectTextInput.value = selected.text || "";
-  elements.objectTextInput.disabled = isImage;
+  elements.objectTextInput.disabled = isImage || selected.type === "shape";
   elements.objectTextInput.closest(".field").querySelector("span").textContent = isImage ? "Изображение" : "Текст";
   elements.objectXInput.value = number(selected.x, 1);
   elements.objectYInput.value = number(selected.y, 1);
@@ -933,6 +1024,14 @@ function renderControls() {
   elements.objectOpacityInput.value = Math.round(clamp(Number(selected.opacity ?? 1), 0.1, 1) * 100);
   elements.objectOpacityValue.value = `${elements.objectOpacityInput.value}%`;
   elements.objectOpacityValue.textContent = `${elements.objectOpacityInput.value}%`;
+  elements.objectItalicInput.checked = Boolean(selected.italic);
+  elements.objectUnderlineInput.checked = Boolean(selected.underline);
+  elements.shapeTypeInput.value = selected.shapeType || "rect";
+  elements.shapeWidthInput.value = number(selected.width || selected.size || 32, 1);
+  elements.shapeHeightInput.value = number(selected.height || selected.size || 18, 1);
+  elements.shapeFillInput.value = selected.fill || "#2563eb";
+  elements.shapeStrokeInput.value = selected.stroke || "#111827";
+  elements.shapeStrokeWidthInput.value = number(selected.strokeWidth ?? 0.4, 1);
   setPercentControl("objectBrightness", selected.brightness);
   setPercentControl("objectContrast", selected.contrast);
   setPercentControl("objectSaturation", selected.saturation);
@@ -941,14 +1040,17 @@ function renderControls() {
   $("#toggleLockBtn").textContent = selected.locked ? "Разблок" : "Блок";
 
   const isCircle = selected.type === "circleText";
+  const isShape = selected.type === "shape";
   elements.circleTextControls.classList.toggle("visible", isCircle);
+  elements.textStyleControls.classList.toggle("visible", !isImage && !isShape);
+  elements.shapeControls.classList.toggle("visible", isShape);
   elements.objectXInput.disabled = isCircle;
   elements.objectYInput.disabled = isCircle;
   elements.objectRotationInput.disabled = isCircle;
-  elements.objectFontInput.disabled = isImage;
-  elements.objectColorInput.disabled = isImage;
-  elements.objectWeightInput.disabled = isImage;
-  elements.objectAlignInput.disabled = isCircle || isImage;
+  elements.objectFontInput.disabled = isImage || isShape;
+  elements.objectColorInput.disabled = isImage || isShape;
+  elements.objectWeightInput.disabled = isImage || isShape;
+  elements.objectAlignInput.disabled = isCircle || isImage || isShape;
   elements.imageEffectControls.classList.toggle("visible", isImage);
 
   if (isCircle) {
@@ -1209,6 +1311,33 @@ function addCircleText() {
   persistAndRender("Добавлен круговой текст");
 }
 
+function addShape() {
+  const center = getSurfaceCenter();
+  const object = {
+    id: createId("shape"),
+    type: "shape",
+    name: "Фигура",
+    text: "",
+    x: center.x,
+    y: center.y,
+    size: 18,
+    rotation: 0,
+    opacity: 1,
+    visible: true,
+    locked: false,
+    surface: state.surface,
+    shapeType: "rect",
+    width: 32,
+    height: 18,
+    fill: "#2563eb",
+    stroke: "#111827",
+    strokeWidth: 0.4
+  };
+  state.objects.push(object);
+  state.selectedId = object.id;
+  persistAndRender("Добавлена фигура");
+}
+
 function addTracklist() {
   const object = createTracklistObject("01. Track Name\n02. Track Name\n03. Track Name");
   state.objects.push(object);
@@ -1340,11 +1469,11 @@ function runPreflight() {
     errors.push("Safe in больше или равен Safe out.");
   }
 
-  if (!getActiveBackground().dataUrl) {
+  if (!hasBackground()) {
     warnings.push("Фон не загружен. Если нужен полный принт, добавь обложку.");
   }
 
-  if (!visibleObjects.length && !getActiveBackground().dataUrl) {
+  if (!visibleObjects.length && !hasBackground()) {
     warnings.push("Нет видимых объектов и фона.");
   }
 
@@ -1353,7 +1482,7 @@ function runPreflight() {
   }
 
   visibleObjects.forEach((object) => {
-    if (object.type !== "image" && !String(object.text || "").trim()) {
+    if (!["image", "shape"].includes(object.type) && !String(object.text || "").trim()) {
       warnings.push(`Пустой слой: ${getObjectDisplayName(object)}.`);
       return;
     }
@@ -1417,6 +1546,17 @@ function estimateObjectRect(object) {
       right: x + size / 2,
       top: y - size / 2,
       bottom: y + size / 2
+    };
+  }
+
+  if (object.type === "shape") {
+    const width = Number(object.width || object.size || 32);
+    const height = object.shapeType === "line" ? Math.max(Number(object.strokeWidth || 0.4), 0.4) : Number(object.height || object.size || 18);
+    return {
+      left: x - width / 2,
+      right: x + width / 2,
+      top: y - height / 2,
+      bottom: y + height / 2
     };
   }
 
@@ -1634,18 +1774,24 @@ function exportPng() {
 
 function openPrintWindow(mode) {
   const isTest = mode === "test";
+  const isDensity = mode === "density";
   const isPdf = mode === "pdf";
   const surface = getSurface();
+  if (isDensity && surface.kind !== "disc") {
+    setStatus("Шаблон плотности доступен только для диска");
+    return;
+  }
   const { width, height } = getSurfaceSize();
   const svg = buildDiscSvg({
     standalone: true,
     test: isTest && surface.kind === "disc",
-    guides: isTest || surface.kind !== "disc"
+    density: isDensity,
+    guides: isTest || isDensity || surface.kind !== "disc"
   });
   const transform = `translate(${state.calibration.x}mm, ${state.calibration.y}mm) rotate(${state.calibration.rotation}deg) scale(${state.calibration.scale / 100})`;
   const inkDensity = clamp(Number(state.calibration.inkDensity ?? 100), 40, 120);
-  const printFilter = isTest ? "none" : `saturate(${inkDensity}%)`;
-  const title = isTest ? "L805 calibration test" : (isPdf ? "L805 PDF export" : `L805 ${state.surface} print`);
+  const printFilter = (isTest || isDensity) ? "none" : `saturate(${inkDensity}%)`;
+  const title = isTest ? "L805 calibration test" : (isDensity ? "L805 density test" : (isPdf ? "L805 PDF export" : `L805 ${state.surface} print`));
   const noteText = isPdf
     ? "Экспорт PDF: в диалоге печати выбери Save as PDF, масштаб 100%, без подгонки под страницу."
     : "Печать Epson L805: выбери источник CD/DVD Tray, масштаб 100%, без подгонки под страницу. После теста внеси поправку X/Y в основной программе.";
@@ -1724,7 +1870,7 @@ function openPrintWindow(mode) {
       </body>
     </html>`);
   printWindow.document.close();
-  setStatus(isTest ? "Открыт тест печати" : (isPdf ? "Открыт экспорт PDF" : "Открыт макет печати"));
+  setStatus(isTest ? "Открыт тест позиции" : (isDensity ? "Открыт тест плотности" : (isPdf ? "Открыт экспорт PDF" : "Открыт макет печати")));
 }
 
 function handlePointerDown(event) {
@@ -1841,6 +1987,7 @@ function getSelectedObject() {
 
 function getObjectDisplayName(object) {
   if (object.type === "image") return object.name || "Картинка";
+  if (object.type === "shape") return object.name || "Фигура";
   const text = String(object.text || "").split("\n")[0].trim();
   if (text) return text.slice(0, 42);
   return object.name || getTypeLabel(object.type);
@@ -1848,6 +1995,7 @@ function getObjectDisplayName(object) {
 
 function getTypeLabel(type) {
   if (type === "image") return "картинка";
+  if (type === "shape") return "фигура";
   if (type === "circleText") return "текст по кругу";
   if (type === "tracklist") return "треклист";
   return "текст";

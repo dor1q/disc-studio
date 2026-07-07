@@ -347,13 +347,37 @@ button {
   text-transform: uppercase;
 }
 
-.image-effect-controls {
+.image-effect-controls,
+.shape-controls,
+.text-style-controls {
   display: none;
   padding-top: 2px;
 }
 
-.image-effect-controls.visible {
+.image-effect-controls.visible,
+.shape-controls.visible,
+.text-style-controls.visible {
   display: block;
+}
+
+.text-style-controls.visible {
+  display: flex;
+  gap: 12px;
+  margin: 0 0 10px;
+}
+
+.check-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.check-field input {
+  width: 16px;
+  height: 16px;
 }
 
 .preflight-results {

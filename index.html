@@ -30,6 +30,7 @@
           <button class="tool-button" id="exportPngBtn" title="Экспорт PNG 300 DPI">PNG</button>
           <button class="tool-button" id="exportPdfBtn" title="Экспорт PDF через диалог печати">PDF</button>
           <button class="tool-button accent" id="testPrintBtn" title="Печать калибровочного шаблона">Тест</button>
+          <button class="tool-button accent" id="densityPrintBtn" title="Печать шаблона плотности">Плотность</button>
           <button class="tool-button primary" id="printBtn" title="Печать макета">Печать</button>
         </div>
       </header>
@@ -54,6 +55,10 @@
               <button id="addCircleTextBtn" class="large-tool">
                 <span>По кругу</span>
                 <small>дуговая надпись</small>
+              </button>
+              <button id="addShapeBtn" class="large-tool">
+                <span>Фигура</span>
+                <small>графический элемент</small>
               </button>
               <button id="addTracklistBtn" class="large-tool">
                 <span>Треклист</span>
@@ -171,6 +176,10 @@
               <button id="coverBgBtn" class="mini-button">Заполнить</button>
               <button id="clearBgBtn" class="mini-button danger">Убрать</button>
             </div>
+            <label class="field">
+              <span>Цвет фона</span>
+              <input id="bgColorInput" type="color" />
+            </label>
             <label class="range-field">
               <span>Масштаб</span>
               <input id="bgScaleInput" type="range" min="50" max="220" value="100" />
@@ -289,6 +298,51 @@
                 <input id="objectOpacityInput" type="range" min="10" max="100" value="100" />
                 <output id="objectOpacityValue">100%</output>
               </label>
+              <div id="textStyleControls" class="text-style-controls">
+                <label class="check-field">
+                  <input id="objectItalicInput" type="checkbox" />
+                  <span>Курсив</span>
+                </label>
+                <label class="check-field">
+                  <input id="objectUnderlineInput" type="checkbox" />
+                  <span>Подчерк.</span>
+                </label>
+              </div>
+              <div id="shapeControls" class="shape-controls">
+                <div class="subsection-title">Фигура</div>
+                <label class="field">
+                  <span>Тип</span>
+                  <select id="shapeTypeInput">
+                    <option value="rect">Прямоугольник</option>
+                    <option value="ellipse">Эллипс</option>
+                    <option value="line">Линия</option>
+                  </select>
+                </label>
+                <div class="field-row">
+                  <label class="field">
+                    <span>Ширина</span>
+                    <input id="shapeWidthInput" type="number" min="1" max="240" step="0.1" />
+                  </label>
+                  <label class="field">
+                    <span>Высота</span>
+                    <input id="shapeHeightInput" type="number" min="1" max="240" step="0.1" />
+                  </label>
+                </div>
+                <div class="field-row">
+                  <label class="field">
+                    <span>Заливка</span>
+                    <input id="shapeFillInput" type="color" />
+                  </label>
+                  <label class="field">
+                    <span>Линия</span>
+                    <input id="shapeStrokeInput" type="color" />
+                  </label>
+                </div>
+                <label class="field">
+                  <span>Толщина линии</span>
+                  <input id="shapeStrokeWidthInput" type="number" min="0" max="10" step="0.1" />
+                </label>
+              </div>
               <div id="imageEffectControls" class="image-effect-controls">
                 <div class="subsection-title">Эффекты изображения</div>
                 <label class="range-field">
