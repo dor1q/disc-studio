@@ -179,7 +179,15 @@ const elements = {
   statusCalibration: $("#statusCalibration"),
   statusMessage: $("#statusMessage"),
   themeToggleBtn: $("#themeToggleBtn"),
+  printWizardDialog: $("#printWizardDialog"),
+  wizardSurfaceLabel: $("#wizardSurfaceLabel"),
+  wizardCloseBtn: $("#wizardCloseBtn"),
+  wizardPreflightBtn: $("#wizardPreflightBtn"),
+  wizardPositionBtn: $("#wizardPositionBtn"),
+  wizardDensityBtn: $("#wizardDensityBtn"),
+  wizardPrintBtn: $("#wizardPrintBtn"),
   preflightResults: $("#preflightResults"),
+  templateLibrarySelect: $("#templateLibrarySelect"),
   surfaceSelect: $("#surfaceSelect"),
   presetSelect: $("#presetSelect"),
   outerInput: $("#outerInput"),
@@ -248,7 +256,8 @@ const elements = {
   backgroundFileInput: $("#backgroundFileInput"),
   imageLayerFileInput: $("#imageLayerFileInput"),
   projectFileInput: $("#projectFileInput"),
-  trackFileInput: $("#trackFileInput")
+  trackFileInput: $("#trackFileInput"),
+  folderInput: $("#folderInput")
 };
 
 applyTheme(theme);
@@ -466,8 +475,11 @@ function bindEvents() {
   $("#addShapeBtn").addEventListener("click", addShape);
   $("#addTracklistBtn").addEventListener("click", addTracklist);
   $("#importTracklistBtn").addEventListener("click", () => elements.trackFileInput.click());
+  $("#importFolderBtn").addEventListener("click", openAudioFolder);
+  $("#printWizardBtn").addEventListener("click", openPrintWizard);
   $("#albumTemplateBtn").addEventListener("click", applyAlbumTemplate);
   $("#coverTemplateBtn").addEventListener("click", applyCoverTemplate);
+  $("#applyTemplateLibraryBtn").addEventListener("click", applyLibraryTemplate);
   $("#moveLayerUpBtn").addEventListener("click", () => moveSelectedLayer(1));
   $("#moveLayerDownBtn").addEventListener("click", () => moveSelectedLayer(-1));
   $("#deleteLayerBtn").addEventListener("click", deleteSelectedObject);
@@ -488,6 +500,15 @@ function bindEvents() {
   elements.imageLayerFileInput.addEventListener("change", handleImageLayerUpload);
   elements.projectFileInput.addEventListener("change", handleProjectUpload);
   elements.trackFileInput.addEventListener("change", handleTrackFileUpload);
+  elements.folderInput.addEventListener("change", handleFolderUpload);
+  elements.wizardCloseBtn.addEventListener("click", closePrintWizard);
+  elements.wizardPreflightBtn.addEventListener("click", runPreflight);
+  elements.wizardPositionBtn.addEventListener("click", () => openPrintWindow("test"));
+  elements.wizardDensityBtn.addEventListener("click", () => openPrintWindow("density"));
+  elements.wizardPrintBtn.addEventListener("click", () => openPrintWindow("design"));
+  elements.printWizardDialog.addEventListener("click", (event) => {
+    if (event.target === elements.printWizardDialog) closePrintWizard();
+  });
 
   elements.surfaceSelect.addEventListener("change", () => {
     state.surface = elements.surfaceSelect.value;
@@ -595,6 +616,11 @@ function bindEvents() {
   window.addEventListener("pointerup", handlePointerUp);
 
   window.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !elements.printWizardDialog.hidden) {
+      closePrintWizard();
+      return;
+    }
+
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "z") {
       event.preventDefault();
       undoChange();
@@ -1082,6 +1108,19 @@ function renderStatus() {
   elements.statusCalibration.textContent = `X ${number(state.calibration.x, 1)} мм, Y ${number(state.calibration.y, 1)} мм, ${number(state.calibration.scale, 1)}%, ink ${number(state.calibration.inkDensity ?? 100, 0)}%`;
 }
 
+function openPrintWizard() {
+  const surface = getSurface();
+  const size = getSurfaceSize();
+  elements.wizardSurfaceLabel.textContent = `${surface.label}: ${number(size.width, 1)}x${number(size.height, 1)} мм`;
+  elements.wizardPositionBtn.disabled = surface.kind !== "disc";
+  elements.wizardDensityBtn.disabled = surface.kind !== "disc";
+  elements.printWizardDialog.hidden = false;
+}
+
+function closePrintWizard() {
+  elements.printWizardDialog.hidden = true;
+}
+
 function handleBackgroundUpload(event) {
   const file = event.target.files && event.target.files[0];
   if (!file) return;
@@ -1205,6 +1244,98 @@ function handleTrackFileUpload(event) {
   };
   reader.readAsText(file, "utf-8");
   event.target.value = "";
+}
+
+async function openAudioFolder() {
+  if (window.l805Desktop?.openAudioFolder) {
+    const result = await window.l805Desktop.openAudioFolder();
+    if (result?.canceled) return;
+    applyParsedAlbum(parseAudioFiles(result.files || [], result.folderName || ""));
+    return;
+  }
+
+  elements.folderInput.click();
+}
+
+function handleFolderUpload(event) {
+  const files = Array.from(event.target.files || []).map((file) => ({
+    name: file.name,
+    path: file.webkitRelativePath || file.name
+  }));
+  const firstPath = files[0]?.path || "";
+  const folderName = firstPath.includes("/") ? firstPath.split("/")[0] : "";
+  applyParsedAlbum(parseAudioFiles(files, folderName));
+  event.target.value = "";
+}
+
+function parseAudioFiles(files, folderName = "") {
+  const audioExtensions = /\.(mp3|flac|wav|aiff?|m4a|ogg|opus|wma)$/i;
+  const tracks = files
+    .filter((file) => audioExtensions.test(file.name))
+    .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))
+    .map((file) => cleanTrackFilename(file.name));
+  const title = parseFolderTitle(folderName);
+  return {
+    artist: title.artist,
+    album: title.album,
+    tracks
+  };
+}
+
+function cleanTrackFilename(filename) {
+  return String(filename || "")
+    .replace(/\.[^.]+$/, "")
+    .replace(/^\s*\d{1,3}\s*[-._)]\s*/, "")
+    .replace(/^\s*\d{1,3}\s+/, "")
+    .trim();
+}
+
+function parseFolderTitle(folderName) {
+  const clean = String(folderName || "").replace(/[_]+/g, " ").trim();
+  const parts = clean.split(/\s+-\s+/).map((part) => part.trim()).filter(Boolean);
+  if (parts.length >= 2) {
+    return {
+      artist: parts[0],
+      album: parts.slice(1).join(" - ")
+    };
+  }
+  return {
+    artist: "",
+    album: clean
+  };
+}
+
+function applyParsedAlbum(parsed) {
+  if (!parsed.tracks.length) {
+    setStatus("Аудиофайлы в папке не найдены");
+    return;
+  }
+
+  const tracklistText = parsed.tracks.map((track, index) => `${String(index + 1).padStart(2, "0")}. ${track}`).join("\n");
+  let trackObject = getCurrentObjects().find((object) => object.type === "tracklist");
+  if (!trackObject) {
+    trackObject = createTracklistObject(tracklistText);
+    state.objects.push(trackObject);
+  } else {
+    trackObject.text = tracklistText;
+    trackObject.name = getObjectDisplayName(trackObject);
+    trackObject.visible = true;
+  }
+
+  let titleObject = getCurrentObjects().find((object) => object.id === "title" || object.type === "text");
+  if (!titleObject && (parsed.artist || parsed.album)) {
+    const center = getSurfaceCenter();
+    titleObject = createTextObject("title", "ARTIST / ALBUM", center.x, getSurface().kind === "disc" ? 40 : 18, getSurface().kind === "disc" ? 5.4 : 5.8, "800");
+    state.objects.push(titleObject);
+  }
+  if (titleObject && (parsed.artist || parsed.album)) {
+    titleObject.text = [parsed.artist, parsed.album].filter(Boolean).join(" / ");
+    titleObject.name = getObjectDisplayName(titleObject);
+    titleObject.visible = true;
+  }
+
+  state.selectedId = trackObject.id;
+  persistAndRender(`Импортирована папка: ${parsed.tracks.length} треков`);
 }
 
 function parseTrackText(content, filename) {
@@ -1684,6 +1815,86 @@ function applyCoverTemplate() {
   persistAndRender(`Шаблон обложки: ${surface.label}`);
 }
 
+function applyLibraryTemplate() {
+  const template = elements.templateLibrarySelect.value;
+  let targetSurface = state.surface;
+
+  if (template.startsWith("disc")) {
+    targetSurface = "disc";
+    state.surface = targetSurface;
+  } else if (template.startsWith("booklet")) {
+    targetSurface = "booklet";
+    state.surface = targetSurface;
+  } else if (state.surface === "disc") {
+    targetSurface = "front";
+    state.surface = targetSurface;
+  }
+
+  const bg = getActiveBackground();
+  const { width, height } = getSurfaceSize();
+  const center = getSurfaceCenter();
+  let objects = [];
+
+  if (template === "disc-minimal") {
+    Object.assign(bg, createEmptyBackground(), { color: "#ffffff" });
+    objects = [
+      createTextObject("title", "ARTIST / ALBUM", center.x, 43, 5.8, "800"),
+      createTextObject(createId("text"), "2026", center.x, 72, 3.2, "600"),
+      createTracklistObject("01. First Track\n02. Second Track\n03. Third Track")
+    ];
+    objects.at(-1).y = 88;
+  } else if (template === "disc-dark") {
+    Object.assign(bg, createEmptyBackground(), { color: "#111827" });
+    objects = [
+      createShapeObject("ellipse", center.x, center.y, 82, 82, "#1f2937", "#3b82f6", 0.5),
+      createTextObject("title", "ARTIST / ALBUM", center.x, 42, 5.4, "800"),
+      createTextObject(createId("text"), "PRINTABLE DISC", center.x, 82, 3.2, "600")
+    ];
+    objects.forEach((object) => {
+      if (object.type === "text") object.color = "#f8fafc";
+    });
+  } else if (template === "disc-archive") {
+    Object.assign(bg, createEmptyBackground(), { color: "#f8fafc" });
+    objects = [
+      createTextObject("title", "ARCHIVE DISC", center.x, 34, 5.2, "800"),
+      createTextObject(createId("text"), "DATE / PROJECT / VERSION", center.x, 52, 3.4, "600"),
+      createTracklistObject("01. Documents\n02. Photos\n03. Audio")
+    ];
+    objects.at(-1).y = 78;
+  } else if (template === "cover-modern") {
+    Object.assign(bg, createEmptyBackground(), { color: "#f1f5f9" });
+    objects = [
+      createShapeObject("rect", center.x, height - 18, width - 16, 24, "#2563eb", "#2563eb", 0),
+      createTextObject("cover-title", "ARTIST / ALBUM", center.x, 50, 7.2, "800"),
+      createTextObject(createId("text"), "SPECIAL EDITION", center.x, height - 17, 3.4, "700")
+    ];
+    objects.at(-1).color = "#ffffff";
+  } else if (template === "cover-tracklist") {
+    Object.assign(bg, createEmptyBackground(), { color: "#ffffff" });
+    objects = [
+      createTextObject("cover-title", "ARTIST / ALBUM", center.x, 16, 5.2, "800"),
+      createTracklistObject("01. First Track\n02. Second Track\n03. Third Track\n04. Fourth Track")
+    ];
+    objects.at(-1).x = center.x;
+    objects.at(-1).y = 42;
+    objects.at(-1).size = 3.4;
+  } else if (template === "booklet-notes") {
+    Object.assign(bg, createEmptyBackground(), { color: "#f8fafc" });
+    objects = [
+      createTextObject(createId("text"), "ARTIST / ALBUM", width * 0.25, center.y, 6.4, "800"),
+      createTextObject(createId("text"), "LINER NOTES", width * 0.75, 26, 4.2, "700"),
+      createTracklistObject("01. First Track\n02. Second Track\n03. Third Track")
+    ];
+    objects.at(-1).x = width * 0.75;
+    objects.at(-1).y = 48;
+  }
+
+  objects = objects.map(normalizeObject);
+  replaceSurfaceObjects(targetSurface, objects);
+  state.selectedId = objects[0]?.id || "";
+  persistAndRender("Шаблон применен");
+}
+
 function createTextObject(id, text, x, y, size, weight = "700", rotation = 0) {
   return {
     id,
@@ -1705,13 +1916,36 @@ function createTextObject(id, text, x, y, size, weight = "700", rotation = 0) {
   };
 }
 
+function createShapeObject(shapeType, x, y, width, height, fill, stroke, strokeWidth) {
+  return {
+    id: createId("shape"),
+    type: "shape",
+    name: "Фигура",
+    text: "",
+    x,
+    y,
+    size: Math.max(width, height),
+    rotation: 0,
+    opacity: 1,
+    visible: true,
+    locked: false,
+    surface: state.surface,
+    shapeType,
+    width,
+    height,
+    fill,
+    stroke,
+    strokeWidth
+  };
+}
+
 function replaceSurfaceObjects(surface, objects) {
   state.objects = state.objects.filter((object) => (object.surface || "disc") !== surface);
   state.objects.push(...objects);
 }
 
 function resetCalibration() {
-  state.calibration = { x: 0, y: 0, scale: 100, rotation: 0 };
+  state.calibration = { x: 0, y: 0, scale: 100, rotation: 0, inkDensity: 100 };
   localStorage.removeItem(CALIBRATION_KEY);
   persistAndRender("Калибровка сброшена");
 }

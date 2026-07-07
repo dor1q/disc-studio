@@ -73,6 +73,30 @@ ipcMain.handle("open-text-file", async (_event, options = {}) => {
   return { canceled: false, filePath: filePaths[0], text };
 });
 
+ipcMain.handle("open-audio-folder", async () => {
+  const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow, {
+    title: "Выбрать папку альбома",
+    properties: ["openDirectory"]
+  });
+
+  if (canceled || !filePaths?.[0]) return { canceled: true };
+  const folderPath = filePaths[0];
+  const entries = await fs.readdir(folderPath, { withFileTypes: true });
+  const files = entries
+    .filter((entry) => entry.isFile())
+    .map((entry) => ({
+      name: entry.name,
+      path: path.join(folderPath, entry.name)
+    }));
+
+  return {
+    canceled: false,
+    folderPath,
+    folderName: path.basename(folderPath),
+    files
+  };
+});
+
 app.whenReady().then(() => {
   createMenu();
   createWindow();

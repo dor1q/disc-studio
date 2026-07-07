@@ -250,6 +250,11 @@ button {
   color: var(--danger);
 }
 
+.wide-button {
+  width: 100%;
+  justify-content: center;
+}
+
 .inline-actions {
   display: flex;
   align-items: center;
@@ -640,6 +645,85 @@ button {
 
 .statusbar span:last-child {
   text-align: right;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.42);
+}
+
+.modal-backdrop[hidden] {
+  display: none;
+}
+
+.wizard-modal {
+  width: min(720px, 92vw);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+
+.wizard-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px;
+  border-bottom: 1px solid var(--line);
+}
+
+.wizard-head h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.wizard-head p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.wizard-steps {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  padding: 18px;
+}
+
+.wizard-step {
+  display: grid;
+  gap: 6px;
+  min-height: 88px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-2);
+  color: var(--text);
+  text-align: left;
+}
+
+.wizard-step strong {
+  font-size: 14px;
+}
+
+.wizard-step span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.wizard-step:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.wizard-step.primary-step {
+  border-color: var(--blue);
 }
 
 body[data-theme="dark"] .topbar {

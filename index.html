@@ -68,6 +68,14 @@
                 <span>CUE/TXT</span>
                 <small>импорт треков</small>
               </button>
+              <button id="importFolderBtn" class="large-tool">
+                <span>Папка</span>
+                <small>альбом из файлов</small>
+              </button>
+              <button id="printWizardBtn" class="large-tool">
+                <span>Мастер</span>
+                <small>печать по шагам</small>
+              </button>
               <button id="albumTemplateBtn" class="large-tool">
                 <span>Альбом</span>
                 <small>быстрый шаблон</small>
@@ -77,6 +85,22 @@
                 <small>шаблон кейса</small>
               </button>
             </div>
+          </section>
+
+          <section class="panel-section">
+            <h2>Шаблоны</h2>
+            <label class="field">
+              <span>Стиль</span>
+              <select id="templateLibrarySelect">
+                <option value="disc-minimal">Диск: минимальный</option>
+                <option value="disc-dark">Диск: темный</option>
+                <option value="disc-archive">Диск: архив</option>
+                <option value="cover-modern">Обложка: modern</option>
+                <option value="cover-tracklist">Обложка: tracklist</option>
+                <option value="booklet-notes">Буклет: notes</option>
+              </select>
+            </label>
+            <button id="applyTemplateLibraryBtn" class="mini-button filled wide-button">Применить</button>
           </section>
 
           <section class="panel-section">
@@ -431,10 +455,41 @@
       </footer>
     </div>
 
+    <div id="printWizardDialog" class="modal-backdrop" hidden>
+      <section class="wizard-modal" role="dialog" aria-modal="true" aria-labelledby="wizardTitle">
+        <div class="wizard-head">
+          <div>
+            <h2 id="wizardTitle">Мастер печати</h2>
+            <p id="wizardSurfaceLabel">Epson L805</p>
+          </div>
+          <button id="wizardCloseBtn" class="mini-button">Закрыть</button>
+        </div>
+        <div class="wizard-steps">
+          <button id="wizardPreflightBtn" class="wizard-step">
+            <strong>1. Проверить</strong>
+            <span>границы, safe zone, пустые слои</span>
+          </button>
+          <button id="wizardPositionBtn" class="wizard-step">
+            <strong>2. Позиция</strong>
+            <span>тест X/Y для CD/DVD Tray</span>
+          </button>
+          <button id="wizardDensityBtn" class="wizard-step">
+            <strong>3. Плотность</strong>
+            <span>подбор насыщенности диска</span>
+          </button>
+          <button id="wizardPrintBtn" class="wizard-step primary-step">
+            <strong>4. Печать</strong>
+            <span>финальный макет 100%</span>
+          </button>
+        </div>
+      </section>
+    </div>
+
     <input id="backgroundFileInput" type="file" accept="image/*" hidden />
     <input id="imageLayerFileInput" type="file" accept="image/*" hidden />
     <input id="projectFileInput" type="file" accept="application/json,.json" hidden />
     <input id="trackFileInput" type="file" accept=".cue,.txt,.csv,text/plain" hidden />
+    <input id="folderInput" type="file" webkitdirectory multiple hidden />
 
     <script src="app.js"></script>
   </body>
