@@ -61,6 +61,10 @@
                 <span>Фигура</span>
                 <small>графический элемент</small>
               </button>
+              <button id="addQrBtn" class="large-tool">
+                <span>QR</span>
+                <small>ссылка или каталог</small>
+              </button>
               <button id="addTracklistBtn" class="large-tool">
                 <span>Треклист</span>
                 <small>строки песен</small>
@@ -325,14 +329,56 @@
                 <output id="objectOpacityValue">100%</output>
               </label>
               <div id="textStyleControls" class="text-style-controls">
+                <div class="inline-check-row">
+                  <label class="check-field">
+                    <input id="objectItalicInput" type="checkbox" />
+                    <span>Курсив</span>
+                  </label>
+                  <label class="check-field">
+                    <input id="objectUnderlineInput" type="checkbox" />
+                    <span>Подчерк.</span>
+                  </label>
+                </div>
+                <div class="subsection-title">Обводка текста</div>
                 <label class="check-field">
-                  <input id="objectItalicInput" type="checkbox" />
-                  <span>Курсив</span>
+                  <input id="objectStrokeEnabledInput" type="checkbox" />
+                  <span>Включить обводку</span>
                 </label>
+                <div class="field-row">
+                  <label class="field">
+                    <span>Цвет</span>
+                    <input id="objectStrokeColorInput" type="color" />
+                  </label>
+                  <label class="field">
+                    <span>Толщина</span>
+                    <input id="objectStrokeWidthInput" type="number" min="0" max="3" step="0.1" />
+                  </label>
+                </div>
+                <div class="subsection-title">Тень текста</div>
                 <label class="check-field">
-                  <input id="objectUnderlineInput" type="checkbox" />
-                  <span>Подчерк.</span>
+                  <input id="objectShadowEnabledInput" type="checkbox" />
+                  <span>Включить тень</span>
                 </label>
+                <div class="field-row">
+                  <label class="field">
+                    <span>Цвет</span>
+                    <input id="objectShadowColorInput" type="color" />
+                  </label>
+                  <label class="field">
+                    <span>Размытие</span>
+                    <input id="objectShadowBlurInput" type="number" min="0" max="6" step="0.1" />
+                  </label>
+                </div>
+                <div class="field-row">
+                  <label class="field">
+                    <span>Сдвиг X</span>
+                    <input id="objectShadowXInput" type="number" min="-10" max="10" step="0.1" />
+                  </label>
+                  <label class="field">
+                    <span>Сдвиг Y</span>
+                    <input id="objectShadowYInput" type="number" min="-10" max="10" step="0.1" />
+                  </label>
+                </div>
               </div>
               <div id="shapeControls" class="shape-controls">
                 <div class="subsection-title">Фигура</div>
@@ -493,6 +539,7 @@
     <input id="trackFileInput" type="file" accept=".cue,.txt,.csv,text/plain" hidden />
     <input id="folderInput" type="file" webkitdirectory multiple hidden />
 
+    <script src="node_modules/qrcode-generator/qrcode.js"></script>
     <script src="app.js"></script>
   </body>
 </html>

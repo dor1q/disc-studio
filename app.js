@@ -229,6 +229,14 @@ const elements = {
   textStyleControls: $("#textStyleControls"),
   objectItalicInput: $("#objectItalicInput"),
   objectUnderlineInput: $("#objectUnderlineInput"),
+  objectStrokeEnabledInput: $("#objectStrokeEnabledInput"),
+  objectStrokeColorInput: $("#objectStrokeColorInput"),
+  objectStrokeWidthInput: $("#objectStrokeWidthInput"),
+  objectShadowEnabledInput: $("#objectShadowEnabledInput"),
+  objectShadowColorInput: $("#objectShadowColorInput"),
+  objectShadowBlurInput: $("#objectShadowBlurInput"),
+  objectShadowXInput: $("#objectShadowXInput"),
+  objectShadowYInput: $("#objectShadowYInput"),
   shapeControls: $("#shapeControls"),
   shapeTypeInput: $("#shapeTypeInput"),
   shapeWidthInput: $("#shapeWidthInput"),
@@ -338,6 +346,14 @@ function normalizeObject(object) {
     surface: "disc",
     italic: false,
     underline: false,
+    strokeEnabled: false,
+    strokeColor: "#ffffff",
+    textStrokeWidth: 0.45,
+    shadowEnabled: false,
+    shadowColor: "#000000",
+    shadowBlur: 0.6,
+    shadowX: 1.1,
+    shadowY: 1.1,
     shapeType: "rect",
     width: 32,
     height: 18,
@@ -476,6 +492,7 @@ function bindEvents() {
   $("#addTextBtn").addEventListener("click", addText);
   $("#addCircleTextBtn").addEventListener("click", addCircleText);
   $("#addShapeBtn").addEventListener("click", addShape);
+  $("#addQrBtn").addEventListener("click", addQrCode);
   $("#addTracklistBtn").addEventListener("click", addTracklist);
   $("#importTracklistBtn").addEventListener("click", () => elements.trackFileInput.click());
   $("#importFolderBtn").addEventListener("click", openAudioFolder);
@@ -591,6 +608,14 @@ function bindEvents() {
     ["objectOpacityInput", "opacity", (value) => Number(value) / 100],
     ["objectItalicInput", "italic", Boolean],
     ["objectUnderlineInput", "underline", Boolean],
+    ["objectStrokeEnabledInput", "strokeEnabled", Boolean],
+    ["objectStrokeColorInput", "strokeColor", String],
+    ["objectStrokeWidthInput", "textStrokeWidth", Number],
+    ["objectShadowEnabledInput", "shadowEnabled", Boolean],
+    ["objectShadowColorInput", "shadowColor", String],
+    ["objectShadowBlurInput", "shadowBlur", Number],
+    ["objectShadowXInput", "shadowX", Number],
+    ["objectShadowYInput", "shadowY", Number],
     ["shapeTypeInput", "shapeType", String],
     ["shapeWidthInput", "width", Number],
     ["shapeHeightInput", "height", Number],
@@ -768,6 +793,7 @@ function buildCoverSvg({ interactive = false, standalone = false, guides = true 
 function buildCoverGuides(surface, width, height) {
   const safe = surface.safe || 5;
   const guides = [
+    buildCropMarks(width, height),
     `<rect x="${safe}" y="${safe}" width="${width - safe * 2}" height="${height - safe * 2}" fill="none" stroke="#0f9f6e" stroke-width="0.28" stroke-dasharray="0.8 1.1"></rect>`,
     `<line x1="${width / 2}" y1="0" x2="${width / 2}" y2="${height}" stroke="#d97706" stroke-width="0.18" stroke-dasharray="1 1.4"></line>`,
     `<line x1="0" y1="${height / 2}" x2="${width}" y2="${height / 2}" stroke="#d97706" stroke-width="0.18" stroke-dasharray="1 1.4"></line>`
@@ -785,6 +811,23 @@ function buildCoverGuides(surface, width, height) {
   }
 
   return guides.join("");
+}
+
+function buildCropMarks(width, height) {
+  const length = 5;
+  const inset = 1;
+  const stroke = "#111827";
+  const strokeWidth = 0.24;
+  return [
+    `<line x1="${inset}" y1="${inset}" x2="${inset + length}" y2="${inset}" stroke="${stroke}" stroke-width="${strokeWidth}"></line>`,
+    `<line x1="${inset}" y1="${inset}" x2="${inset}" y2="${inset + length}" stroke="${stroke}" stroke-width="${strokeWidth}"></line>`,
+    `<line x1="${width - inset}" y1="${inset}" x2="${width - inset - length}" y2="${inset}" stroke="${stroke}" stroke-width="${strokeWidth}"></line>`,
+    `<line x1="${width - inset}" y1="${inset}" x2="${width - inset}" y2="${inset + length}" stroke="${stroke}" stroke-width="${strokeWidth}"></line>`,
+    `<line x1="${inset}" y1="${height - inset}" x2="${inset + length}" y2="${height - inset}" stroke="${stroke}" stroke-width="${strokeWidth}"></line>`,
+    `<line x1="${inset}" y1="${height - inset}" x2="${inset}" y2="${height - inset - length}" stroke="${stroke}" stroke-width="${strokeWidth}"></line>`,
+    `<line x1="${width - inset}" y1="${height - inset}" x2="${width - inset - length}" y2="${height - inset}" stroke="${stroke}" stroke-width="${strokeWidth}"></line>`,
+    `<line x1="${width - inset}" y1="${height - inset}" x2="${width - inset}" y2="${height - inset - length}" stroke="${stroke}" stroke-width="${strokeWidth}"></line>`
+  ].join("");
 }
 
 function getViewBox() {
@@ -839,6 +882,74 @@ function buildFilterStyle(source) {
   return ` style="filter: ${escapeAttribute(value)}"`;
 }
 
+function buildTextPaintAttributes(object) {
+  const strokeWidth = Math.max(0, Number(object.textStrokeWidth ?? 0.45));
+  if (!object.strokeEnabled || strokeWidth <= 0) return "";
+  return ` stroke="${escapeAttribute(object.strokeColor || "#ffffff")}" stroke-width="${number(strokeWidth)}" stroke-linejoin="round" paint-order="stroke fill"`;
+}
+
+function buildTextShadow(object) {
+  if (!object.shadowEnabled) return { definition: "", attribute: "" };
+  const id = createSafeSvgId("textShadow", object.id);
+  const dx = number(object.shadowX ?? 1.1);
+  const dy = number(object.shadowY ?? 1.1);
+  const blur = number(Math.max(0, Number(object.shadowBlur ?? 0.6)));
+  return {
+    definition: `<filter id="${id}" x="-35%" y="-35%" width="170%" height="170%"><feDropShadow dx="${dx}" dy="${dy}" stdDeviation="${blur}" flood-color="${escapeAttribute(object.shadowColor || "#000000")}" flood-opacity="0.55"></feDropShadow></filter>`,
+    attribute: ` filter="url(#${id})"`
+  };
+}
+
+function buildQrObject(object, common, x, y, size, rotation, opacity) {
+  const qrSize = Math.max(10, size || 24);
+  const half = qrSize / 2;
+  const quietZone = Math.max(1.5, qrSize * 0.08);
+  const data = String(object.text || "").trim() || "https://example.com";
+  const dark = escapeAttribute(object.color || "#111827");
+  const light = escapeAttribute(object.fill || "#ffffff");
+  const transform = `translate(${x} ${y}) rotate(${rotation})`;
+
+  if (typeof qrcode !== "function") {
+    return buildQrFallback(common, half, qrSize, transform, opacity, dark, light);
+  }
+
+  try {
+    qrcode.stringToBytes = qrcode.stringToBytesFuncs?.["UTF-8"] || qrcode.stringToBytes;
+    const qr = qrcode(0, "M");
+    qr.addData(data);
+    qr.make();
+    const modules = qr.getModuleCount();
+    const cell = (qrSize - quietZone * 2) / modules;
+    const origin = -half + quietZone;
+    const rects = [];
+
+    for (let row = 0; row < modules; row += 1) {
+      for (let col = 0; col < modules; col += 1) {
+        if (!qr.isDark(row, col)) continue;
+        rects.push(`<rect x="${number(origin + col * cell)}" y="${number(origin + row * cell)}" width="${number(cell + 0.01)}" height="${number(cell + 0.01)}"></rect>`);
+      }
+    }
+
+    return `
+      <g ${common} transform="${transform}" opacity="${opacity}">
+        <rect x="${-half}" y="${-half}" width="${qrSize}" height="${qrSize}" rx="1.2" fill="${light}" stroke="#d8dee8" stroke-width="0.25"></rect>
+        <g fill="${dark}">${rects.join("")}</g>
+      </g>
+    `;
+  } catch {
+    return buildQrFallback(common, half, qrSize, transform, opacity, dark, light);
+  }
+}
+
+function buildQrFallback(common, half, qrSize, transform, opacity, dark, light) {
+  return `
+    <g ${common} transform="${transform}" opacity="${opacity}">
+      <rect x="${-half}" y="${-half}" width="${qrSize}" height="${qrSize}" rx="1.2" fill="${light}" stroke="${dark}" stroke-width="0.4"></rect>
+      <text x="0" y="0" font-size="${Math.max(3, qrSize * 0.18)}" font-weight="800" text-anchor="middle" dominant-baseline="middle" fill="${dark}">QR</text>
+    </g>
+  `;
+}
+
 function buildObject(object, selectedId) {
   const selectedClass = object.id === selectedId ? " selected" : "";
   const common = `data-object-id="${escapeAttribute(object.id)}" class="disc-object${selectedClass}"`;
@@ -864,6 +975,10 @@ function buildObject(object, selectedId) {
     `;
   }
 
+  if (object.type === "qr") {
+    return buildQrObject(object, common, x, y, size, rotation, opacity);
+  }
+
   if (object.type === "shape") {
     const width = Math.max(1, Number(object.width || size || 32));
     const height = Math.max(1, Number(object.height || size || 18));
@@ -887,11 +1002,12 @@ function buildObject(object, selectedId) {
   }
 
   if (object.type === "circleText") {
-    const pathId = `arc-${escapeAttribute(object.id)}`;
+    const pathId = createSafeSvgId("arc", object.id);
     const path = describeArc(center.x, center.y, Number(object.radius || 45), Number(object.start || -120), Number(object.start || -120) + Number(object.sweep || 240));
+    const shadow = buildTextShadow(object);
     return `
-      <defs><path id="${pathId}" d="${path}"></path></defs>
-      <text ${common} font-size="${number(object.size)}" font-family="${fontFamily}" font-style="${object.italic ? "italic" : "normal"}" font-weight="${escapeAttribute(object.weight || "700")}" text-decoration="${object.underline ? "underline" : "none"}" fill="${escapeAttribute(object.color || "#111827")}" opacity="${opacity}" letter-spacing="0.35">
+      <defs><path id="${pathId}" d="${path}"></path>${shadow.definition}</defs>
+      <text ${common} font-size="${number(object.size)}" font-family="${fontFamily}" font-style="${object.italic ? "italic" : "normal"}" font-weight="${escapeAttribute(object.weight || "700")}" text-decoration="${object.underline ? "underline" : "none"}" fill="${escapeAttribute(object.color || "#111827")}" opacity="${opacity}" letter-spacing="0.35"${buildTextPaintAttributes(object)}${shadow.attribute}>
         <textPath href="#${pathId}" startOffset="50%" text-anchor="middle">${escapeText(object.text)}</textPath>
       </text>
     `;
@@ -900,12 +1016,14 @@ function buildObject(object, selectedId) {
   const lines = String(object.text || "").split("\n");
   const anchor = object.align || "middle";
   const lineHeight = Number(object.lineHeight || 1.25);
+  const shadow = buildTextShadow(object);
   const tspans = lines.map((line, index) => {
     const dy = index === 0 ? 0 : size * lineHeight;
     return `<tspan x="${x}" dy="${index === 0 ? 0 : dy}">${escapeText(line)}</tspan>`;
   }).join("");
 
   return `
+    ${shadow.definition ? `<defs>${shadow.definition}</defs>` : ""}
     <text ${common}
       x="${x}" y="${y}"
       transform="rotate(${rotation} ${x} ${y})"
@@ -917,6 +1035,8 @@ function buildObject(object, selectedId) {
       fill="${escapeAttribute(object.color || "#18212f")}"
       opacity="${opacity}"
       text-anchor="${anchor}"
+      ${buildTextPaintAttributes(object)}
+      ${shadow.attribute}
       dominant-baseline="middle">${tspans}</text>
   `;
 }
@@ -1046,9 +1166,15 @@ function renderControls() {
   if (!selected) return;
 
   const isImage = selected.type === "image";
+  const isShape = selected.type === "shape";
+  const isQr = selected.type === "qr";
+  const isCircle = selected.type === "circleText";
+  const isTextLike = !isImage && !isShape && !isQr;
   elements.objectTextInput.value = selected.text || "";
-  elements.objectTextInput.disabled = isImage || selected.type === "shape";
-  elements.objectTextInput.closest(".field").querySelector("span").textContent = isImage ? "Изображение" : "Текст";
+  elements.objectTextInput.disabled = isImage || isShape;
+  elements.objectTextInput.closest(".field").querySelector("span").textContent = isImage
+    ? "Изображение"
+    : (isShape ? "Фигура" : (isQr ? "Ссылка QR" : "Текст"));
   elements.objectXInput.value = number(selected.x, 1);
   elements.objectYInput.value = number(selected.y, 1);
   elements.objectSizeInput.value = number(selected.size, 1);
@@ -1062,6 +1188,14 @@ function renderControls() {
   elements.objectOpacityValue.textContent = `${elements.objectOpacityInput.value}%`;
   elements.objectItalicInput.checked = Boolean(selected.italic);
   elements.objectUnderlineInput.checked = Boolean(selected.underline);
+  elements.objectStrokeEnabledInput.checked = Boolean(selected.strokeEnabled);
+  elements.objectStrokeColorInput.value = selected.strokeColor || "#ffffff";
+  elements.objectStrokeWidthInput.value = number(selected.textStrokeWidth ?? 0.45, 1);
+  elements.objectShadowEnabledInput.checked = Boolean(selected.shadowEnabled);
+  elements.objectShadowColorInput.value = selected.shadowColor || "#000000";
+  elements.objectShadowBlurInput.value = number(selected.shadowBlur ?? 0.6, 1);
+  elements.objectShadowXInput.value = number(selected.shadowX ?? 1.1, 1);
+  elements.objectShadowYInput.value = number(selected.shadowY ?? 1.1, 1);
   elements.shapeTypeInput.value = selected.shapeType || "rect";
   elements.shapeWidthInput.value = number(selected.width || selected.size || 32, 1);
   elements.shapeHeightInput.value = number(selected.height || selected.size || 18, 1);
@@ -1075,18 +1209,16 @@ function renderControls() {
   $("#toggleVisibleBtn").textContent = selected.visible === false ? "Показать" : "Скрыть";
   $("#toggleLockBtn").textContent = selected.locked ? "Разблок" : "Блок";
 
-  const isCircle = selected.type === "circleText";
-  const isShape = selected.type === "shape";
   elements.circleTextControls.classList.toggle("visible", isCircle);
-  elements.textStyleControls.classList.toggle("visible", !isImage && !isShape);
+  elements.textStyleControls.classList.toggle("visible", isTextLike);
   elements.shapeControls.classList.toggle("visible", isShape);
   elements.objectXInput.disabled = isCircle;
   elements.objectYInput.disabled = isCircle;
   elements.objectRotationInput.disabled = isCircle;
-  elements.objectFontInput.disabled = isImage || isShape;
+  elements.objectFontInput.disabled = isImage || isShape || isQr;
   elements.objectColorInput.disabled = isImage || isShape;
-  elements.objectWeightInput.disabled = isImage || isShape;
-  elements.objectAlignInput.disabled = isCircle || isImage || isShape;
+  elements.objectWeightInput.disabled = isImage || isShape || isQr;
+  elements.objectAlignInput.disabled = isCircle || isImage || isShape || isQr;
   elements.imageEffectControls.classList.toggle("visible", isImage);
 
   if (isCircle) {
@@ -1398,13 +1530,14 @@ function cleanCueValue(value) {
 
 function addText() {
   const center = getSurfaceCenter();
+  const y = getSurface().kind === "disc" ? 40 : center.y;
   const object = {
     id: createId("text"),
     type: "text",
     name: "Новый текст",
     text: "NEW TEXT",
     x: center.x,
-    y: center.y,
+    y,
     size: 5,
     rotation: 0,
     color: "#111827",
@@ -1477,6 +1610,30 @@ function addShape() {
   state.objects.push(object);
   state.selectedId = object.id;
   persistAndRender("Добавлена фигура");
+}
+
+function addQrCode() {
+  const center = getSurfaceCenter();
+  const isDisc = getSurface().kind === "disc";
+  const object = {
+    id: createId("qr"),
+    type: "qr",
+    name: "QR-ссылка",
+    text: "https://example.com",
+    x: center.x,
+    y: isDisc ? 30 : center.y,
+    size: isDisc ? 22 : 24,
+    rotation: 0,
+    color: "#111827",
+    fill: "#ffffff",
+    opacity: 1,
+    visible: true,
+    locked: false,
+    surface: state.surface
+  };
+  state.objects.push(object);
+  state.selectedId = object.id;
+  persistAndRender("Добавлен QR-код");
 }
 
 function addTracklist() {
@@ -1596,6 +1753,7 @@ function runPreflight() {
   const { width, height } = getSurfaceSize();
   const visibleObjects = getCurrentObjects().filter((object) => object.visible !== false);
   const hiddenCount = getCurrentObjects().length - visibleObjects.length;
+  const backgroundReady = hasBackground();
   const printOuter = state.profile.printOuter / 2;
   const printInner = state.profile.printInner / 2;
   const safeOuter = state.profile.safeOuter / 2;
@@ -1610,11 +1768,13 @@ function runPreflight() {
     errors.push("Safe in больше или равен Safe out.");
   }
 
-  if (!hasBackground()) {
-    warnings.push("Фон не загружен. Если нужен полный принт, добавь обложку.");
+  if (!backgroundReady) {
+    warnings.push(surface.kind === "disc"
+      ? "Фон не загружен. Если нужен полный принт, добавь обложку."
+      : "На обложке нет фона до края. Для bleed лучше добавить фон или цвет.");
   }
 
-  if (!visibleObjects.length && !hasBackground()) {
+  if (!visibleObjects.length && !backgroundReady) {
     warnings.push("Нет видимых объектов и фона.");
   }
 
@@ -1626,6 +1786,24 @@ function runPreflight() {
     if (!["image", "shape"].includes(object.type) && !String(object.text || "").trim()) {
       warnings.push(`Пустой слой: ${getObjectDisplayName(object)}.`);
       return;
+    }
+
+    const objectSize = Number(object.size || 0);
+    if (["text", "tracklist", "circleText"].includes(object.type) && objectSize < 2.4) {
+      warnings.push(`Слой "${getObjectDisplayName(object)}" может быть слишком мелким для печати.`);
+    }
+
+    if (object.type === "qr") {
+      if (objectSize < 18) {
+        warnings.push(`QR-код "${getObjectDisplayName(object)}" меньше 18 мм и может плохо считываться.`);
+      }
+      if (String(object.text || "").trim() === "https://example.com") {
+        warnings.push("QR-код оставлен с тестовой ссылкой example.com.");
+      }
+    }
+
+    if (Number(object.opacity ?? 1) < 0.25) {
+      warnings.push(`Слой "${getObjectDisplayName(object)}" почти прозрачный.`);
     }
 
     const rect = estimateObjectRect(object);
@@ -1680,7 +1858,7 @@ function estimateObjectRect(object) {
   const x = Number(object.x ?? center.x);
   const y = Number(object.y ?? center.y);
 
-  if (object.type === "image") {
+  if (object.type === "image" || object.type === "qr") {
     const size = Number(object.size || 24);
     return {
       left: x - size / 2,
@@ -2278,6 +2456,7 @@ function getSelectedObject() {
 function getObjectDisplayName(object) {
   if (object.type === "image") return object.name || "Картинка";
   if (object.type === "shape") return object.name || "Фигура";
+  if (object.type === "qr") return object.name || "QR-код";
   const text = String(object.text || "").split("\n")[0].trim();
   if (text) return text.slice(0, 42);
   return object.name || getTypeLabel(object.type);
@@ -2286,6 +2465,7 @@ function getObjectDisplayName(object) {
 function getTypeLabel(type) {
   if (type === "image") return "картинка";
   if (type === "shape") return "фигура";
+  if (type === "qr") return "QR-код";
   if (type === "circleText") return "текст по кругу";
   if (type === "tracklist") return "треклист";
   return "текст";
@@ -2293,6 +2473,10 @@ function getTypeLabel(type) {
 
 function createId(prefix) {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+}
+
+function createSafeSvgId(prefix, id) {
+  return `${prefix}-${String(id || createId("id")).replace(/[^a-zA-Z0-9_-]/g, "-")}`;
 }
 
 function setStatus(message) {

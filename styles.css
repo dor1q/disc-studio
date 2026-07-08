@@ -366,9 +366,15 @@ button {
 }
 
 .text-style-controls.visible {
-  display: flex;
-  gap: 12px;
+  display: block;
   margin: 0 0 10px;
+}
+
+.inline-check-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 10px;
 }
 
 .check-field {
