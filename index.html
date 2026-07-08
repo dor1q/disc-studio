@@ -28,6 +28,7 @@
           <div class="toolbar-separator"></div>
           <button class="tool-button" id="exportSvgBtn" title="Экспорт SVG 1:1">SVG</button>
           <button class="tool-button" id="exportPngBtn" title="Экспорт PNG 300 DPI">PNG</button>
+          <button class="tool-button" id="exportSetBtn" title="Экспорт всех макетов SVG">Комплект</button>
           <button class="tool-button" id="exportPdfBtn" title="Экспорт PDF через диалог печати">PDF</button>
           <button class="tool-button accent" id="testPrintBtn" title="Печать калибровочного шаблона">Тест</button>
           <button class="tool-button accent" id="densityPrintBtn" title="Печать шаблона плотности">Плотность</button>
@@ -136,6 +137,7 @@
               <button data-zoom="1" class="active">100%</button>
               <button data-zoom="1.5">150%</button>
             </div>
+            <button id="snapToggleBtn" class="snap-toggle active" title="Магнит к центру и безопасным полям">Снап</button>
             <label class="surface-switch">
               <span>Макет</span>
               <select id="surfaceSelect">

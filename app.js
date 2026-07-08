@@ -163,6 +163,7 @@ const THEME_KEY = "l805-disc-studio-theme";
 let state = loadInitialState();
 let theme = loadTheme();
 let zoom = 1;
+let snapEnabled = true;
 let dragState = null;
 let historyPast = [JSON.stringify(state)];
 let historyFuture = [];
@@ -187,6 +188,7 @@ const elements = {
   wizardDensityBtn: $("#wizardDensityBtn"),
   wizardPrintBtn: $("#wizardPrintBtn"),
   preflightResults: $("#preflightResults"),
+  snapToggleBtn: $("#snapToggleBtn"),
   templateLibrarySelect: $("#templateLibrarySelect"),
   surfaceSelect: $("#surfaceSelect"),
   presetSelect: $("#presetSelect"),
@@ -464,6 +466,7 @@ function bindEvents() {
   $("#themeToggleBtn").addEventListener("click", toggleTheme);
   $("#exportSvgBtn").addEventListener("click", exportSvg);
   $("#exportPngBtn").addEventListener("click", exportPng);
+  $("#exportSetBtn").addEventListener("click", exportFullSet);
   $("#exportPdfBtn").addEventListener("click", () => openPrintWindow("pdf"));
   $("#printBtn").addEventListener("click", () => openPrintWindow("design"));
   $("#testPrintBtn").addEventListener("click", () => openPrintWindow("test"));
@@ -495,6 +498,7 @@ function bindEvents() {
   $("#preflightBtn").addEventListener("click", runPreflight);
   $("#resetCalibrationBtn").addEventListener("click", resetCalibration);
   $("#saveCalibrationBtn").addEventListener("click", saveCalibration);
+  elements.snapToggleBtn.addEventListener("click", toggleSnap);
 
   elements.backgroundFileInput.addEventListener("change", handleBackgroundUpload);
   elements.imageLayerFileInput.addEventListener("change", handleImageLayerUpload);
@@ -654,6 +658,12 @@ function render() {
   renderLayers();
   renderControls();
   renderStatus();
+}
+
+function toggleSnap() {
+  snapEnabled = !snapEnabled;
+  elements.snapToggleBtn.classList.toggle("active", snapEnabled);
+  setStatus(snapEnabled ? "Снап включен" : "Снап выключен");
 }
 
 function updateCanvasViewport() {
@@ -1967,6 +1977,19 @@ function exportSvg() {
   setStatus("SVG экспортирован");
 }
 
+function exportFullSet() {
+  const previousSurface = state.surface;
+  SURFACE_ORDER.forEach((surface) => {
+    state.surface = surface;
+    const svg = buildDiscSvg({ standalone: true, guides: false });
+    downloadText(`l805-${surface}-layout.svg`, svg, "image/svg+xml");
+  });
+  state.surface = previousSurface;
+  downloadText("l805-disc-project.json", JSON.stringify(state, null, 2), "application/json");
+  render();
+  setStatus("Комплект SVG и проект экспортированы");
+}
+
 function getExportBaseName() {
   return `l805-${state.surface}-layout`;
 }
@@ -2147,9 +2170,42 @@ function handlePointerMove(event) {
   if (!object) return;
   const point = clientToSvgPoint(event.clientX, event.clientY);
   const { width, height } = getSurfaceSize();
-  object.x = clamp(dragState.startX + point.x - dragState.startPoint.x, 0, width);
-  object.y = clamp(dragState.startY + point.y - dragState.startPoint.y, 0, height);
+  const snapped = snapPoint(
+    clamp(dragState.startX + point.x - dragState.startPoint.x, 0, width),
+    clamp(dragState.startY + point.y - dragState.startPoint.y, 0, height)
+  );
+  object.x = snapped.x;
+  object.y = snapped.y;
   render();
+}
+
+function snapPoint(x, y) {
+  if (!snapEnabled) return { x, y };
+
+  const surface = getSurface();
+  const { width, height } = getSurfaceSize();
+  const center = getSurfaceCenter();
+  const safe = surface.kind === "disc" ? 0 : (surface.safe || 5);
+  const xs = [center.x, safe, width - safe];
+  const ys = [center.y, safe, height - safe];
+
+  if (surface.kind === "back") {
+    const spine = surface.spine || 6.5;
+    xs.push(spine, width - spine);
+  }
+
+  if (surface.kind === "booklet") {
+    xs.push(surface.fold || width / 2);
+  }
+
+  const threshold = 1.2;
+  const snappedX = xs.reduce((best, next) => Math.abs(x - next) < Math.abs(x - best) ? next : best, x);
+  const snappedY = ys.reduce((best, next) => Math.abs(y - next) < Math.abs(y - best) ? next : best, y);
+
+  return {
+    x: Math.abs(x - snappedX) <= threshold ? snappedX : x,
+    y: Math.abs(y - snappedY) <= threshold ? snappedY : y
+  };
 }
 
 function handlePointerUp() {

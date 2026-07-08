@@ -474,6 +474,23 @@ button {
   color: #fff;
 }
 
+.snap-toggle {
+  height: 34px;
+  min-width: 66px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.snap-toggle.active {
+  border-color: rgba(15, 159, 110, 0.45);
+  background: #ecfdf5;
+  color: #047857;
+}
+
 .surface-switch {
   display: flex;
   align-items: center;
@@ -733,6 +750,7 @@ body[data-theme="dark"] .topbar {
 body[data-theme="dark"] .tool-button,
 body[data-theme="dark"] .mini-button,
 body[data-theme="dark"] .large-tool,
+body[data-theme="dark"] .snap-toggle,
 body[data-theme="dark"] .segmented,
 body[data-theme="dark"] .surface-switch select,
 body[data-theme="dark"] .field input,
@@ -756,6 +774,12 @@ body[data-theme="dark"] .tool-button.primary {
 }
 
 body[data-theme="dark"] .tool-button.accent {
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(16, 185, 129, 0.45);
+  color: #7dd3b0;
+}
+
+body[data-theme="dark"] .snap-toggle.active {
   background: rgba(16, 185, 129, 0.12);
   border-color: rgba(16, 185, 129, 0.45);
   color: #7dd3b0;
